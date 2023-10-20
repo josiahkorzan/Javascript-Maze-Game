@@ -14,11 +14,152 @@ class Entity {
 
 
 export class Player extends Entity {
-    constructor(size, xpos, ypos, speed) {
-        super(size, xpos, ypos, speed);
+    constructor(size, speed, canvas) {
+        super(size, 0, 0, speed);
+        this.xpos = (canvas.width/2) - (this.size/2);
+        this.ypos = (canvas.height/2) - (this.size/2);
+        this.input = new InputHandler();
+    }
+
+    move(map) {
+        this.getInput();
+        this.collision_detection(map);
+        if (this.up) {
+            map.ypos += this.speed;
+        }
+        if (this.down) {
+            map.ypos -= this.speed;
+        }
+        if (this.left) {
+            map.xpos += this.speed;
+        }
+        if (this.right) {
+            map.xpos -= this.speed;
+        }
+    }
+
+    collision_detection(map) {
+        // get the cell that the player is currently in 
+        // for each wall in that cell check if player is touching that wall
+        // if the player is, set the direction corresponding to that wall to false
+
+        let cell_top_left = this.get_current_cell(map, this.xpos, this.ypos);
+        let cell_top_right = this.get_current_cell(map, this.xpos + this.size, this.ypos);
+        let cell_bottom_left = this.get_current_cell(map, this.xpos, this.ypos + this.size);
+        let cell_bottom_right = this.get_current_cell(map, this.xpos + this.size, this.ypos + this.size);
+
+        // Check if player is touching any wall of the cell
+        if (cell_top_left.walls.top && this.ypos <= cell_top_left.ypos + 5) {
+            this.up = false;
+        }
+
+        if (cell_top_left.walls.left && this.xpos <= cell_top_left.xpos + 5) {
+            this.left = false;
+        }
+
+        if (cell_top_left.walls.bottom && this.ypos + this.size >= cell_top_left.ypos + cell_top_left.height - 5) {
+            this.down = false;
+        }
+
+        if (cell_top_left.walls.right && this.xpos + this.size >= cell_top_left.xpos + cell_top_left.width - 5) {
+            this.right = false;
+        }
+
+        //Edge case to stop player from travelling down the vertical of a wall
+        // if (cell_top_left.col_num + 1 === cell_top_right.col_num) {
+        //     if (cell_top_left.row_num < map.num_rows - 1 && cell_top_left.row_num > 0) {
+        //         new_cell_bottom = map.grid[cell_top_left.row_num + 1][cell_top_left.col_num];
+        //         new_cell_top = map.grid[cell_top_left.row_num - 1][cell_top_left.col_num];
+            
+        //         if (new_cell_bottom.walls.right) {
+        //             this.down = false;
+        //         } else {
+        //             this.down = true;
+        //         }
+
+        //         if (new_cell_top.walls.right) {
+        //             this.up = false;
+        //         } else {
+        //             this.up = true;
+        //         }
+        //     }
+
+        // }
+        
+
+    }
+
+    get_current_cell(map, xpos, ypos) {
+        // Calculate player's position relative to the map
+        let relX = xpos - map.xpos;
+        let relY = ypos - map.ypos;
+
+        // Calculate the width and height of each cell
+        let cell_width = map.size / map.num_cols;
+        let cell_height = map.size / map.num_rows;
+
+        // Calculate the row and column number of the cell the player is in
+        let col_num = Math.floor(relX / cell_width);
+        let row_num = Math.floor(relY / cell_height);
+
+        //  Return the corresponding cell from the grid
+        map.maze.grid[row_num][col_num].calculate_cell(map); //makes sure xpos, ypos, width, height are defined for cell
+        return map.maze.grid[row_num][col_num];
+    }
+
+
+
+    getInput() {
+        if (this.input.isKeyDown('w') || this.input.isKeyDown('ArrowUp')) {
+            this.up = true;
+        } else {
+            this.up = false;
+        }
+
+
+        if (this.input.isKeyDown('a') || this.input.isKeyDown('ArrowLeft')) {
+            this.left = true;
+        } else {
+            this.left = false;
+        }
+
+
+        if (this.input.isKeyDown('s') || this.input.isKeyDown('ArrowDown')) {
+            this.down = true;
+        } else {
+            this.down = false;
+        }
+
+
+        if (this.input.isKeyDown('d') || this.input.isKeyDown('ArrowRight')) {
+            this.right = true;
+        } else {
+            this.right = false;
+        }
+
     }
 
 }
+
+export class InputHandler {
+    constructor() {
+        this.keyDown = {};
+
+        window.addEventListener('keydown', (e) => {
+            this.keyDown[e.key] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            this.keyDown[e.key] = false;
+        });
+    }
+
+    isKeyDown(key) {
+        return this.keyDown[key];
+    }
+}
+
+
 
 export class Enemy extends Entity {
     constructor(size, xpos, ypos, speed) {
@@ -28,13 +169,18 @@ export class Enemy extends Entity {
 }
 
 export class Map {
-    constructor(xpos, ypos, num_rows, num_cols, player_size) {
+    constructor(size, xpos, ypos, num_rows, num_cols) {
+        this.size = size;
+
         this.xpos = xpos;
         this.ypos = ypos;
-        this.size = (player_size * 1.5) * num_cols
+
         this.num_rows = num_rows;
         this.num_cols = num_cols;
+
+        this.maze = new Maze(num_rows, num_cols);
     }
+
 }
 
 export class Maze {
@@ -144,7 +290,22 @@ export class Cell {
             bottom: true,
             left: true
         };
+        this.width;
+        this.height;
+        this.xpos;
+        this.ypos;
     }
+
+    calculate_cell(map) {
+        // Calculate the width and height of each cell
+        this.width = map.size / map.num_cols;
+        this.height = map.size / map.num_rows;
+
+        // Calculate the x and y position of the cell
+        this.xpos = this.col_num * this.width + map.xpos;
+        this.ypos = this.row_num * this.height + map.ypos;
+    }
+
 
     remove_wall(wall) { //wall is a string
         switch(wall) {

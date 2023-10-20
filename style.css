@@ -26,6 +26,6 @@ body {
 
 canvas {
     border: 1px solid rgba(0, 0, 0);
-    background-color: white;
+    background-color: rgb(0, 0, 0);
     margin: auto;
 }
